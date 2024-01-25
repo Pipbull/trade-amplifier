@@ -1,5 +1,3 @@
-
-
 //+------------------------------------------------------------------+
 //|                                              Trade Amplifier.mq5 |
 //|                                  Copyright 2023, MetaQuotes Ltd. |
@@ -20,7 +18,8 @@ MqlRates PriceInfo[];
 
 string signal="";
 
-
+input string TimeStart ="00:00";
+input string TimeEnd = "23:59";
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
@@ -36,12 +35,14 @@ string signal="";
 void OnTick()
   {
 
-
+ datetime timeStart = StringToTime(TimeStart);
+   datetime timeEnd = StringToTime(TimeEnd);
+   
 double myMovingAverageArray1[],myMovingAverageArray2[];
 
-int MovingAverageDefinition1 = iMA(_Symbol,PERIOD_M1,20,0,MODE_EMA,PRICE_CLOSE);
+int MovingAverageDefinition1 = iMA(_Symbol,PERIOD_M1,50,0,MODE_EMA,PRICE_CLOSE);
 
-int MovingAverageDefinition2 = iMA(_Symbol,PERIOD_M1,50,0,MODE_EMA,PRICE_CLOSE);
+int MovingAverageDefinition2 = iMA(_Symbol,PERIOD_M1,200,0,MODE_EMA,PRICE_CLOSE);
 
 
 ArraySetAsSeries(myMovingAverageArray1,true);
@@ -64,13 +65,15 @@ double myMovingAverageValue2=myMovingAverageArray2[0];
 
 
 double Ask=NormalizeDouble(SymbolInfoDouble(_Symbol,SYMBOL_ASK),_Digits);
- double bid = NormalizeDouble(SymbolInfoDouble(_Symbol ,SYMBOL_BID),_Digits);
+ double bid = NormalizeDouble(SymbolInfoDouble(_Symbol ,SYMBOL_BID),_Digits);+
  
 ArraySetAsSeries(PriceInfo,true);
 
 int PriceData = CopyRates(Symbol(),Period(),0,3,PriceInfo); 
  
 static double NextBuyPrice;
+static double NextSellPrice;
+
 
  
  
@@ -96,58 +99,63 @@ static double NextBuyPrice;
  
 if(PositionsTotal()==0)
     NextBuyPrice=0;
+     NextSellPrice=0;
+  
+    
+    
+    
+   /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 if(
-      (myMovingAverageArray1[0]>myMovingAverageArray2[0])
+      (myMovingAverageArray1[0]>=myMovingAverageArray2[0])
   // && (myMovingAverageArray1[1]<myMovingAverageArray2[1
   
   
    
    ){
-   
-       closeallsells();
+       Comment("BUY");
+      closeallsells();
+       
    
    if( Ask>=NextBuyPrice)
-   
-   // if(signal=="buy")
    {
-     
-    trade.Buy(1,NULL,Ask,NULL);
-   
-   NextBuyPrice=Ask+100000*_Point;
+    trade.Buy(0.10 ,NULL,Ask,(Ask-100000*_Point),(Ask+500000*_Point),NULL);
+    
+    CheckTrailingStopBuySL(Ask);
+    
+   NextBuyPrice=Ask+50000*_Point;
   
-  }
+    }
   }
    
  
+   /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+ 
    
-   //trade.Sell(0.10,NULL,bid,bid+50000*_Point,bid-50000*_Point,NULL);
-   
-   
-   if(
-      (myMovingAverageArray1[0]<myMovingAverageArray2[0])
-  // && (myMovingAverageArray1[1]<myMovingAverageArray2[1])
+  if(
+      (myMovingAverageArray1[0]<=myMovingAverageArray2[0])
+  // && (myMovingAverageArray1[1]<myMovingAverageArray2[1
+  
+  
    
    ){
-   
-     closeallbuys();
-   
+       Comment("SELL");
+      closeallbuys();
+         
    if( bid<=NextBuyPrice)
-   
-   // if(signal=="buy")
    {
-     
-    trade.Sell(1,NULL,bid,NULL);
+   trade.Sell(0.10 ,NULL,bid,(bid+100000*_Point),(bid-500000*_Point),NULL);
    
-  // NextBuyPrice=bid-100000*_Point;
+   CheckTrailingStopSellSL(Ask);
+    
+   NextBuyPrice=bid-50000*_Point;
   
-  
-     }
-   }
+    }
+  }
  
 
- 
- 
+   /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  // trade.Sell(0.10,NULL,bid,NULL);
  
  
  
@@ -156,30 +164,6 @@ if(
  
    
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////   
-   
- /*  if(
-      (myMovingAverageArray1[0]<myMovingAverageArray2[0])
-   && (myMovingAverageArray1[1]>myMovingAverageArray2[1])
-  
-   ){
-   
-       closeallbuys();
-   
-    if( PositionsTotal()==0)
-   {
-    
-  trade.Sell(0.10,NULL,bid,bid+5000000*_Point,bid-5000000*_Point,NULL);
-   //  trade.Buy(0.10,NULL,Ask,Ask-50000*_Point,Ask+50000*_Point,NULL);
-   
-  
-     
-   }
- }
-
-
-*/
-
-
    
   }//end of ontick function begin of global scope
   
@@ -244,7 +228,7 @@ void closeallbuys()
    
   
   
-  void CheckTrailingStop(double Ask)
+  void CheckTrailingStopBuySL(double Ask)
     {
     
     double SL=NormalizeDouble(Ask-150000*_Point,_Digits);
@@ -263,6 +247,37 @@ void closeallbuys()
        
        
        trade.PositionModify(PositionsTicket,(CurrentStopLoss+150000*_Point),0);
+       
+       
+       }
+       
+       }
+   
+      }
+     
+     }
+     
+     
+      
+  void CheckTrailingStopSellSL(double Ask)
+    {
+    
+    double SL=NormalizeDouble(Ask+150000*_Point,_Digits);
+    
+    for(int i = PositionsTotal()-1;i>=0;i--){
+    
+       string symbol=PositionGetSymbol(i);
+       
+       if(_Symbol==symbol){
+       
+       ulong PositionsTicket=PositionGetInteger(POSITION_TICKET);
+       
+       double CurrentStopLoss=PositionGetDouble(POSITION_SL);
+       
+       if(CurrentStopLoss<SL){
+       
+       
+       trade.PositionModify(PositionsTicket,(CurrentStopLoss-150000*_Point),0);
        
        
        }
